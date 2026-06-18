@@ -1,29 +1,37 @@
-name: Auto update JGSA dashboard
+name: Update JGSA Data Daily
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '30 4 * * *'
-
-permissions:
-  contents: write
+    # Runs daily at 1:00 AM UTC = 6:30 AM IST
+    - cron: '0 1 * * *'
+  workflow_dispatch: # allows manual trigger
 
 jobs:
-  update:
+  update-data:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          
       - name: Fetch live JGSA data
-        run: python scripts/fetch_live_jgsa.py
-      - name: Commit updated data
+        run: |
+          python scripts/fetch_live_jgsa.py
+        env:
+          PYTHONUNBUFFERED: 1
+          
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add jgsa_live_data.js
-          git diff --cached --quiet && echo "No changes" || git commit -m "Auto update JGSA live data"
-          git push
+          git add jgsa_live_data.js jgsa_live_data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update JGSA data $(date +'%Y-%m-%d')" && git push)
